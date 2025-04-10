@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iWorQ SPIN Sales Practice Game</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f0f0f0; }
+    #game-container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    #resetBtn { background: #dc3545; }
+    #resetBtn:hover { background: #b02a37; }
+    #question { font-size: 1.2em; margin: 20px 0; }
+    #score { font-weight: bold; color: #28a745; }
+    #feedback { color: #dc3545; margin: 10px 0; }
+    #inputAnswer, #playerName { padding: 10px; width: 80%; margin: 10px 0; }
+    #leaderboard { margin-top: 20px; text-align: left; }
+    #leaderboard li { margin: 5px 0; }
+    #scoreOutput { width: 80%; height: 150px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h1>iWorQ SPIN Sales Practice Game</h1>
+    <div id="login" style="display: block;">
+      <p>Enter your name to start (10 questions):</p>
+      <input type="text" id="playerName" placeholder="Your Name">
+      <button onclick="startGame()">Start Game</button>
+    </div>
+    <div id="game" style="display: none;">
+      <p id="score">Score: 0/100 | Question: 1/10</p>
+      <div id="question"></div>
+      <input type="text" id="inputAnswer" placeholder="Type your SPIN question here">
+      <button id="submitBtn" onclick="checkAnswer()">Submit</button>
+      <p id="feedback"></p>
+    </div>
+    <div id="leaderboard" style="display: none;">
+      <h2>Results</h2>
+      <ul id="scoreList"></ul>
+      <p>Copy the text below and send it to your manager:</p>
+      <textarea id="scoreOutput" readonly></textarea>
+      <button onclick="copyToClipboard()">Copy Results</button>
+      <button onclick="resetGame()">Play Again</button>
+      <button id="resetBtn" onclick="resetScores()">Reset Local Scores</button>
+    </div>
+  </div>
+
+  <script>
+    let score = 0;
+    let questionCount = 0;
+    let currentQuestion = {};
+    let playerName = "";
+    let responses = [];
+    const scenarios = [
+      { scenario: "Public Works Director says: 'We’ve been managing our fleet with spreadsheets for years.'", type: "Situation", examples: ["How do you currently track vehicle maintenance schedules with those spreadsheets?"] },
+      { scenario: "City Manager says: 'Our vehicle downtime is unpredictable.'", type: "Problem", examples: ["What specific challenges does unpredictable downtime create for your operations?"] },
+      { scenario: "Fleet Manager says: 'Missed maintenance costs us $5k per incident.'", type: "Implication", examples: ["How does that $5k per incident impact your annual operating budget?"] },
+      { scenario: "Utilities Head says: 'A better backflow tracking system would save us time.'", type: "Need-Payoff", examples: ["How much time would a streamlined backflow tracking system save your team each month?"] },
+      { scenario: "Public Works says: 'We struggle to keep up with backflow inspections.'", type: "Problem", examples: ["What difficulties do you face in staying on top of backflow inspection schedules?"] },
+      { scenario: "County Official says: 'Fuel costs are eating into our budget.'", type: "Implication", examples: ["How are those rising fuel costs affecting your ability to fund other critical projects?"] },
+      { scenario: "Water Dept says: 'We use paper logs for cross-connection checks.'", type: "Situation", examples: ["How do you currently ensure accuracy with paper logs for cross-connection checks?"] },
+      { scenario: "Fleet Supervisor says: 'Real-time data would improve our decisions.'", type: "Need-Payoff", examples: ["How would real-time data improve the efficiency of your fleet management decisions?"] },
+      { scenario: "City Manager says: 'Our fleet repairs take too long.'", type: "Problem", examples: ["What problems do those long repair times cause for your fleet availability?"] },
+      { scenario: "Utilities Head says: 'Compliance reporting takes hours.'", type: "Implication", examples: ["How do those hours spent on compliance reporting delay other key priorities?"] }
+    ];
+    let usedScenarios = [];
+
+    function startGame() {
+      playerName = document.getElementById("playerName").value.trim();
+      if (!playerName) {
+        alert("Please enter your name!");
+        return;
+      }
+      score = 0;
+      questionCount = 0;
+      usedScenarios = [];
+      responses = [];
+      document.getElementById("login").style.display = "none";
+      document.getElementById("game").style.display = "block";
+      document.getElementById("score").textContent = `Score: ${score}/100 | Question: ${questionCount + 1}/10`;
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      if (questionCount >= 10) {
+        endGame();
+        return;
+      }
+      let available = scenarios.filter(s => !usedScenarios.includes(s));
+      currentQuestion = available[Math.floor(Math.random() * available.length)];
+      usedScenarios.push(currentQuestion);
+      document.getElementById("question").innerHTML = `<strong>Scenario:</strong> ${currentQuestion.scenario}<br><br>Ask a <strong>${currentQuestion.type}</strong> question:`;
+      document.getElementById("feedback").textContent = "";
+      document.getElementById("inputAnswer").value = "";
+    }
+
+    function checkAnswer() {
+      const userAnswer = document.getElementById("inputAnswer").value.trim().toLowerCase();
+      const feedback = document.getElementById("feedback");
+      const type = currentQuestion.type.toLowerCase();
+      let questionScore = 0;
+
+      if (!userAnswer || !userAnswer.endsWith("?")) {
+        questionScore = 0;
+        feedback.textContent = `Score: 0/10 - Not a question or empty. Example: "${currentQuestion.examples[0]}"`;
+      } else {
+        let isCategoryCorrect = false;
+        if (type === "situation" && (userAnswer.includes("how") || userAnswer.includes("what") || userAnswer.includes("current") || userAnswer.includes("process")) && !userAnswer.includes("cost") && !userAnswer.includes("save")) {
+          isCategoryCorrect = true;
+        } else if (type === "problem" && (userAnswer.includes("issue") || userAnswer.includes("problem") || userAnswer.includes("challenge") || userAnswer.includes("difficult") || userAnswer.includes("struggle"))) {
+          isCategoryCorrect = true;
+        } else if (type === "implication" && (userAnswer.includes("impact") || userAnswer.includes("affect") || userAnswer.includes("cost") || userAnswer.includes("lose") || userAnswer.includes("mean"))) {
+          isCategoryCorrect = true;
+        } else if (type === "need-payoff" && (userAnswer.includes("save") || userAnswer.includes("gain") || userAnswer.includes("benefit") || userAnswer.includes("improve") || userAnswer.includes("help"))) {
+          isCategoryCorrect = true;
+        }
+
+        if (isCategoryCorrect) {
+          if (userAnswer.length > 20 && userAnswer.includes(currentQuestion.scenario.split("'")[1].toLowerCase().split(" ")[0])) {
+            questionScore = 10; // Perfect: specific and scenario-tied
+          } else if (userAnswer.length > 15) {
+            questionScore = 7; // Good: category correct, decent length
+          } else {
+            questionScore = 4; // Fair: category correct but vague
+          }
+        } else {
+          questionScore = 3; // Poor: wrong category
+        }
+        feedback.textContent = `Score: ${questionScore}/10 - ${questionScore === 10 ? "Perfect!" : questionScore >= 7 ? "Good, but refine it." : questionScore >= 4 ? "On track, but lacks punch." : "Off-target."} Example: "${currentQuestion.examples[0]}"`;
+      }
+
+      score += questionScore;
+      responses.push({ question: currentQuestion.scenario, type: currentQuestion.type, answer: userAnswer, score: questionScore });
+      questionCount++;
+      document.getElementById("score").textContent = `Score: ${score}/100 | Question: ${questionCount + 1}/10`;
+      nextQuestion();
+    }
+
+    function endGame() {
+      let scores = JSON.parse(localStorage.getItem("spinScores") || "{}");
+      scores[playerName] = score;
+      localStorage.setItem("spinScores", JSON.stringify(scores));
+
+      document.getElementById("game").style.display = "none";
+      const leaderboard = document.getElementById("leaderboard");
+      leaderboard.style.display = "block";
+      
+      const scoreList = responses.map((r, i) => `<li>Q${i + 1} (${r.type}): "${r.answer}" - ${r.score}/10</li>`).join("");
+      document.getElementById("scoreList").innerHTML = `<li>Total Score: ${score}/100</li>${scoreList}`;
+
+      const scoreText = `${playerName}: ${score}/100\n` + responses.map((r, i) => `Q${i + 1} (${r.type}): "${r.answer}" - ${r.score}/10`).join("\n");
+      document.getElementById("scoreOutput").value = scoreText;
+    }
+
+    function resetGame() {
+      document.getElementById("leaderboard").style.display = "none";
+      document.getElementById("login").style.display = "block";
+      document.getElementById("playerName").value = "";
+    }
+
+    function resetScores() {
+      if (confirm("Reset all scores on this device?")) {
+        localStorage.removeItem("spinScores");
+        document.getElementById("scoreList").innerHTML = "<li>No scores yet.</li>";
+        document.getElementById("scoreOutput").value = "";
+      }
+    }
+
+    function copyToClipboard() {
+      const output = document.getElementById("scoreOutput");
+      output.select();
+      document.execCommand("copy");
+      alert("Results copied! Paste them into an email or chat to send to your manager.");
+    }
+  </script>
+</body>
+</html>
+
+
+
